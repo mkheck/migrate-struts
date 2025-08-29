@@ -1,0 +1,360 @@
+# OpenRewrite Recipes for Struts to Spring Boot Migration
+# These recipes automate the transformation of Apache Struts applications to Spring Boot
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.StrutsToSpringBootMigration
+displayName: Complete Struts to Spring Boot Migration
+description: Orchestrates the complete migration from Apache Struts to Spring Boot
+recipeList:
+  - org.openrewrite.java.struts.migration.PrepareSpringBootFoundation
+  - org.openrewrite.java.struts.migration.ConvertStrutsComponents
+  - org.openrewrite.java.struts.migration.MigrateWebConfiguration
+  - org.openrewrite.java.struts.migration.TransformViewLayer
+  - org.openrewrite.java.struts.migration.UpdateTestingFramework
+  - io.moderne.java.spring.boot3.SpringBoot3BestPractices
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.PrepareSpringBootFoundation
+displayName: Prepare Spring Boot Foundation
+description: Sets up Spring Boot dependencies and configuration
+recipeList:
+  - org.openrewrite.maven.AddDependency:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-starter-parent
+      version: 3.4.x
+      type: pom
+      scope: parent
+  - org.openrewrite.maven.AddDependency:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-starter-web
+      scope: compile
+  - org.openrewrite.maven.AddDependency:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-starter-validation
+      scope: compile
+  - org.openrewrite.maven.AddDependency:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-starter-test
+      scope: test
+  - org.openrewrite.maven.RemoveDependency:
+      groupId: org.apache.struts
+      artifactId: struts2-core
+  - org.openrewrite.maven.RemoveDependency:
+      groupId: org.apache.struts
+      artifactId: struts2-config-browser-plugin
+  - org.openrewrite.maven.AddPlugin:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-maven-plugin
+      version: 3.4.x
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.ConvertStrutsActionToSpringController
+displayName: Convert Struts Actions to Spring Controllers
+description: Transforms Struts Action classes into Spring MVC Controllers
+recipeList:
+  - org.openrewrite.java.RemoveImport:
+      type: com.opensymphony.xwork2.ActionSupport
+  - org.openrewrite.java.RemoveImport:
+      type: org.apache.struts2.ActionSupport
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.stereotype.Controller
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.bind.annotation.RequestMapping
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.bind.annotation.GetMapping
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.bind.annotation.PostMapping
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.ui.Model
+      onlyIfUsing: false
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: com.opensymphony.xwork2.ActionSupport
+      newFullyQualifiedTypeName: java.lang.Object
+  - org.openrewrite.java.AddAnnotation:
+      annotationType: "@org.springframework.stereotype.Controller"
+      target: "class"
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: "* execute()"
+      newMethodName: handleRequest
+  - org.openrewrite.java.AddAnnotation:
+      annotationType: "@org.springframework.web.bind.annotation.RequestMapping"
+      target: "method"
+      methodPattern: "* handleRequest()"
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.ConvertActionProperties
+displayName: Convert Action Properties to Request Parameters
+description: Transforms Struts Action properties to Spring request parameters
+recipeList:
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.bind.annotation.RequestParam
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.bind.annotation.ModelAttribute
+      onlyIfUsing: false
+  # Transform getters/setters to method parameters with @RequestParam
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.MigrateStrutsValidation
+displayName: Migrate Struts Validation to Bean Validation
+description: Converts Struts validation to Jakarta Bean Validation
+recipeList:
+  - org.openrewrite.java.AddImport:
+      type: jakarta.validation.constraints.NotNull
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: jakarta.validation.constraints.Size
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: jakarta.validation.constraints.Email
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: jakarta.validation.constraints.Pattern
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: jakarta.validation.Valid
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.validation.BindingResult
+      onlyIfUsing: false
+  # Parse validation XML and add corresponding annotations
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.ConvertStrutsInterceptor
+displayName: Convert Struts Interceptors to Spring Interceptors
+description: Transforms Struts interceptors to Spring HandlerInterceptors
+recipeList:
+  - org.openrewrite.java.RemoveImport:
+      type: com.opensymphony.xwork2.interceptor.Interceptor
+  - org.openrewrite.java.RemoveImport:
+      type: com.opensymphony.xwork2.interceptor.AbstractInterceptor
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.servlet.HandlerInterceptor
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.servlet.ModelAndView
+      onlyIfUsing: false
+  - org.openrewrite.java.ImplementInterface:
+      interfaceType: org.springframework.web.servlet.HandlerInterceptor
+  - org.openrewrite.java.ChangeMethodName:
+      methodPattern: "* intercept(com.opensymphony.xwork2.ActionInvocation)"
+      newMethodName: preHandle
+  # Transform method signatures and add postHandle/afterCompletion
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.MigrateStrutsResults
+displayName: Migrate Struts Results to Spring Views
+description: Converts Struts result configurations to Spring view resolvers
+recipeList:
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.servlet.ModelAndView
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.http.ResponseEntity
+      onlyIfUsing: false
+  - org.openrewrite.java.ReplaceConstant:
+      owningType: com.opensymphony.xwork2.Action
+      constantName: SUCCESS
+      literalValue: "success"
+  - org.openrewrite.java.ReplaceConstant:
+      owningType: com.opensymphony.xwork2.Action
+      constantName: ERROR
+      literalValue: "error"
+  - org.openrewrite.java.ReplaceConstant:
+      owningType: com.opensymphony.xwork2.Action
+      constantName: INPUT
+      literalValue: "input"
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.TransformJSPTags
+displayName: Transform Struts JSP Tags to Spring Tags
+description: Converts Struts tags in JSP files to Spring tags
+recipeList:
+  - org.openrewrite.xml.ChangeTagValue:
+      elementName: "taglib"
+      oldValue: "/struts-tags"
+      newValue: "http://www.springframework.org/tags/form"
+  - org.openrewrite.FindAndReplace:
+      find: "<%@ taglib prefix=\"s\" uri=\"/struts-tags\" %>"
+      replace: "<%@ taglib prefix=\"form\" uri=\"http://www.springframework.org/tags/form\" %>"
+  - org.openrewrite.FindAndReplace:
+      find: "<s:form"
+      replace: "<form:form"
+  - org.openrewrite.FindAndReplace:
+      find: "</s:form>"
+      replace: "</form:form>"
+  - org.openrewrite.FindAndReplace:
+      find: "<s:textfield"
+      replace: "<form:input"
+  - org.openrewrite.FindAndReplace:
+      find: "<s:password"
+      replace: "<form:password"
+  - org.openrewrite.FindAndReplace:
+      find: "<s:textarea"
+      replace: "<form:textarea"
+  - org.openrewrite.FindAndReplace:
+      find: "<s:select"
+      replace: "<form:select"
+  - org.openrewrite.FindAndReplace:
+      find: "<s:checkbox"
+      replace: "<form:checkbox"
+  - org.openrewrite.FindAndReplace:
+      find: "<s:radio"
+      replace: "<form:radiobutton"
+  - org.openrewrite.FindAndReplace:
+      find: "<s:submit"
+      replace: "<button type=\"submit\""
+  - org.openrewrite.FindAndReplace:
+      find: "<s:property value="
+      replace: "${"
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.ConvertOGNLtoSpringEL
+displayName: Convert OGNL Expressions to Spring Expression Language
+description: Transforms OGNL expressions to Spring EL syntax
+recipeList:
+  - org.openrewrite.FindAndReplace:
+      find: "%{"
+      replace: "${"
+  - org.openrewrite.FindAndReplace:
+      find: "#session."
+      replace: "sessionScope."
+  - org.openrewrite.FindAndReplace:
+      find: "#request."
+      replace: "requestScope."
+  - org.openrewrite.FindAndReplace:
+      find: "#application."
+      replace: "applicationScope."
+  - org.openrewrite.FindAndReplace:
+      find: "#parameters."
+      replace: "param."
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.CreateSpringBootApplication
+displayName: Create Spring Boot Application Class
+description: Creates main Spring Boot application class if not exists
+recipeList:
+  - org.openrewrite.java.AddClass:
+      className: Application
+      packageName: ${basePackage}
+      source: |
+        package ${basePackage};
+        
+        import org.springframework.boot.SpringApplication;
+        import org.springframework.boot.autoconfigure.SpringBootApplication;
+        
+        @SpringBootApplication
+        public class Application {
+            public static void main(String[] args) {
+                SpringApplication.run(Application.class, args);
+            }
+        }
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.ConfigureViewResolver
+displayName: Configure Spring View Resolver
+description: Sets up view resolver for JSP files
+recipeList:
+  - org.openrewrite.properties.AddProperty:
+      property: spring.mvc.view.prefix
+      value: /WEB-INF/jsp/
+      file: src/main/resources/application.properties
+  - org.openrewrite.properties.AddProperty:
+      property: spring.mvc.view.suffix
+      value: .jsp
+      file: src/main/resources/application.properties
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.MigrateWebXml
+displayName: Migrate web.xml to Spring Boot Configuration
+description: Converts web.xml configurations to Spring Boot
+recipeList:
+  - org.openrewrite.spring.webxml.RemoveWebXml
+  - org.openrewrite.java.struts.migration.ConvertFiltersToSpringBeans
+  - org.openrewrite.java.struts.migration.ConvertListenersToSpringListeners
+  - org.openrewrite.java.struts.migration.MigrateServletMappings
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.UpdateTestFramework
+displayName: Update Test Framework to Spring Boot Test
+description: Migrates Struts test cases to Spring Boot tests
+recipeList:
+  - org.openrewrite.java.RemoveImport:
+      type: org.apache.struts2.StrutsTestCase
+  - org.openrewrite.java.RemoveImport:
+      type: org.apache.struts2.StrutsSpringTestCase
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.boot.test.context.SpringBootTest
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.test.web.servlet.MockMvc
+      onlyIfUsing: false
+  - org.openrewrite.java.AddAnnotation:
+      annotationType: "@org.springframework.boot.test.context.SpringBootTest"
+      target: "class"
+  - org.openrewrite.java.ChangeType:
+      oldFullyQualifiedTypeName: org.apache.struts2.StrutsTestCase
+      newFullyQualifiedTypeName: java.lang.Object
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.MigrateExceptionHandling
+displayName: Migrate Exception Handling to Spring
+description: Converts Struts exception handling to Spring @ControllerAdvice
+recipeList:
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.bind.annotation.ControllerAdvice
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.bind.annotation.ExceptionHandler
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.http.HttpStatus
+      onlyIfUsing: false
+  - org.openrewrite.java.AddImport:
+      type: org.springframework.web.bind.annotation.ResponseStatus
+      onlyIfUsing: false
+  # Create GlobalExceptionHandler class with @ControllerAdvice
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.struts.migration.ConfigureSpringProperties
+displayName: Configure Spring Boot Application Properties
+description: Sets up essential Spring Boot application properties
+recipeList:
+  - org.openrewrite.properties.AddProperty:
+      property: server.port
+      value: 8080
+      file: src/main/resources/application.properties
+  - org.openrewrite.properties.AddProperty:
+      property: spring.application.name
+      value: ${artifactId}
+      file: src/main/resources/application.properties
+  - org.openrewrite.properties.AddProperty:
+      property: logging.level.root
+      value: INFO
+      file: src/main/resources/application.properties
+  - org.openrewrite.properties.AddProperty:
+      property: spring.jpa.open-in-view
+      value: false
+      file: src/main/resources/application.properties
