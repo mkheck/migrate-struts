@@ -1,4 +1,4 @@
-# Iterative Proof of Concept repo for migration from Apache Struts to Spring Boo
+# Iterative Proof of Concept repo for migration from Apache Struts to Spring Boot
 
 NOTE: This is very much a work in progress, and this is quite literally "step one".
 
